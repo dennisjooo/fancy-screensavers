@@ -42,13 +42,14 @@ class BaseSimulator(ABC):
         
         return (formatted_message, random.uniform(delay_range[0], delay_range[1]))
     
-    def format_metrics_bars(self, metrics: Dict[str, float], formatters: Dict[str, str]) -> Dict[str, str]:
+    def format_metrics_bars(self, metrics: Dict[str, float], formatters: Dict[str, Tuple[str, float]]) -> Dict[str, str]:
         return {
-            key: formatter.format(
-                progress_bar(metrics[key]/100 if key.endswith('util') else metrics[key]/formatter_max, 20),
+            key: formatter[0].format(
+                progress_bar(metrics[key]/100 if key.endswith('util') else metrics[key]/formatter[1], 20),
+                progress_bar(metrics[key]/100 if key.endswith('util') else metrics[key]/formatter[1], 20),
                 metrics[key]
             )
-            for key, (formatter, formatter_max) in formatters.items()
+            for key, formatter in formatters.items()
             if key in metrics
         }
     
