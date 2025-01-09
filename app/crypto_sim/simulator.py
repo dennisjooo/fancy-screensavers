@@ -91,14 +91,32 @@ class MarketSimulator:
             while True:
                 elapsed: float = time.time() - start_time
                 
-                # Simulate market movements
+                # Simulate market movements with sanity checks
                 price_change: float
                 volume_change: float
                 price_change, volume_change = self.indicators.generate_market_metrics(
-                    elapsed, base_volatility, current_price, market_data
+                    base_volatility, current_price, market_data
                 )
-                current_price *= (1 + price_change)
-                current_volume *= (1 + volume_change)
+                
+                # Calculate max movement based on actual market data
+                daily_range = (market_data['high_24h'] - market_data['low_24h']) / market_data['price']
+                max_tick_change = (daily_range / 24 / 60) * 5  # Allow 5x the average minute range
+                
+                # Limit movements based on actual market volatility
+                price_change = max(min(price_change, max_tick_change), -max_tick_change)
+                volume_change = max(min(volume_change, max_tick_change * 2), -max_tick_change * 2)
+                
+                # Apply changes with bounds checking
+                new_price = current_price * (1 + price_change)
+                new_volume = current_volume * (1 + volume_change)
+                
+                # Sanity checks on price and volume using market data ranges
+                price_range_buffer = 0.2  # Allow 20% beyond 24h range
+                min_price = market_data['low_24h'] * (1 - price_range_buffer)
+                max_price = market_data['high_24h'] * (1 + price_range_buffer)
+                if min_price <= new_price <= max_price and new_volume > 0:
+                    current_price = new_price
+                    current_volume = new_volume
                 
                 high_price = max(high_price, current_price)
                 low_price = min(low_price, current_price)
@@ -112,7 +130,7 @@ class MarketSimulator:
                     time.sleep(delay)
                 
                 # Generate technical indicators
-                indicators: Dict[str, float] = self.indicators.generate_indicators(current_price, current_volume, market_data)
+                indicators: Dict[str, float] = self.indicators.generate_indicators(current_volume, market_data)
                 indicator_bars: Dict[str, str] = self.display.format_indicators(indicators, current_price)
                 
                 # Basic status line
